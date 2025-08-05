@@ -1,0 +1,23 @@
+{
+  "name": "kalyan-gallery-backend",
+  "version": "1.0.0",
+  "description": "Backend for Kalyan Gallery Management System",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "ejs": "^3.1.10",
+    "express": "^5.1.0",
+    "multer": "^2.0.2",
+    "node": "^22.18.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

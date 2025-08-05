@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Image Gallery</title>
+</head>
+<body>
+  <h1>Uploaded Images</h1>
+  <a href="/upload">Upload More</a>
+  <div style="display: flex; flex-wrap: wrap;">
+    <% images.forEach(img => { %>
+      <div style="margin: 10px;">
+        <img src="/uploads/<%= img %>" width="300" alt="Image">
+      </div>
+    <% }); %>
+  </div>
+</body>
+</html>
