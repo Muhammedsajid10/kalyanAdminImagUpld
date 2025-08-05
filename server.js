@@ -6,14 +6,22 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Admin credentials (in production, use environment variables)
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'kalyan2025';
+
 // Setup EJS
 app.set('view engine', 'ejs');
+
+// Parse JSON bodies
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Enable CORS for all routes
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   if (req.method === 'OPTIONS') {
     res.sendStatus(200);
   } else {
@@ -44,15 +52,88 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
+// Simple session store (in production, use Redis or database)
+const sessions = new Map();
+
+// Generate session token
+function generateSessionToken() {
+  return Math.random().toString(36).substring(2) + Date.now().toString(36);
+}
+
+// Middleware to check authentication
+function requireAuth(req, res, next) {
+  const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
+  
+  if (!token || !sessions.has(token)) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  
+  const session = sessions.get(token);
+  if (Date.now() > session.expires) {
+    sessions.delete(token);
+    return res.status(401).json({ error: 'Session expired' });
+  }
+  
+  next();
+}
+
 // Routes
+
+// Admin login endpoint
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body;
+  
+  if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+    const token = generateSessionToken();
+    const expires = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
+    
+    sessions.set(token, { expires, username });
+    
+    res.json({ 
+      success: true, 
+      token,
+      message: 'Login successful' 
+    });
+  } else {
+    res.status(401).json({ 
+      error: 'Invalid credentials' 
+    });
+  }
+});
+
+// Admin logout endpoint
+app.post('/api/logout', (req, res) => {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  if (token) {
+    sessions.delete(token);
+  }
+  res.json({ message: 'Logged out successfully' });
+});
+
+// Check auth status
+app.get('/api/auth/status', (req, res) => {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  
+  if (!token || !sessions.has(token)) {
+    return res.json({ authenticated: false });
+  }
+  
+  const session = sessions.get(token);
+  if (Date.now() > session.expires) {
+    sessions.delete(token);
+    return res.json({ authenticated: false });
+  }
+  
+  res.json({ authenticated: true, username: session.username });
+});
 
 // Show upload form
 app.get('/upload', (req, res) => {
   res.render('upload');
 });
 
-// Handle upload
-app.post('/upload', upload.single('photo'), (req, res) => {
+// Handle upload (protected route)
+app.post('/upload', requireAuth, upload.single('photo'), (req, res) => {
   res.json({ success: true, message: 'Image uploaded successfully' });
 });
 
@@ -89,8 +170,8 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, '../admin/index.html'));
 });
 
-// API endpoint to delete an image
-app.delete('/api/delete/:filename', (req, res) => {
+// API endpoint to delete an image (protected route)
+app.delete('/api/delete/:filename', requireAuth, (req, res) => {
   const filename = req.params.filename;
   const filePath = path.join(__dirname, 'uploads', filename);
   
