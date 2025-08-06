@@ -79,7 +79,29 @@ function requireAuth(req, res, next) {
 
 // Routes
 
-// Admin login endpoint
+// Admin login endpoint (both /login and /api/login for compatibility)
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
+  
+  if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+    const token = generateSessionToken();
+    const expires = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
+    
+    sessions.set(token, { expires, username });
+    
+    res.json({ 
+      success: true, 
+      token,
+      message: 'Login successful' 
+    });
+  } else {
+    res.status(401).json({ 
+      success: false,
+      message: 'Invalid credentials' 
+    });
+  }
+});
+
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   
@@ -96,7 +118,8 @@ app.post('/api/login', (req, res) => {
     });
   } else {
     res.status(401).json({ 
-      error: 'Invalid credentials' 
+      success: false,
+      message: 'Invalid credentials' 
     });
   }
 });
@@ -108,6 +131,32 @@ app.post('/api/logout', (req, res) => {
     sessions.delete(token);
   }
   res.json({ message: 'Logged out successfully' });
+});
+
+// Admin logout endpoint (compatibility)
+app.post('/logout', (req, res) => {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  if (token) {
+    sessions.delete(token);
+  }
+  res.json({ message: 'Logged out successfully' });
+});
+
+// Verify auth endpoint (compatibility)
+app.get('/verify-auth', (req, res) => {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  
+  if (!token || !sessions.has(token)) {
+    return res.status(401).json({ authenticated: false });
+  }
+  
+  const session = sessions.get(token);
+  if (Date.now() > session.expires) {
+    sessions.delete(token);
+    return res.status(401).json({ authenticated: false });
+  }
+  
+  res.json({ authenticated: true, username: session.username });
 });
 
 // Check auth status
