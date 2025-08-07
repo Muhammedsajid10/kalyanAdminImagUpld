@@ -159,6 +159,32 @@ app.get('/verify-auth', (req, res) => {
   res.json({ authenticated: true, username: session.username });
 });
 
+// Admin logout endpoint (compatibility)
+app.post('/logout', (req, res) => {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  if (token) {
+    sessions.delete(token);
+  }
+  res.json({ message: 'Logged out successfully' });
+});
+
+// Verify auth endpoint (compatibility)
+app.get('/verify-auth', (req, res) => {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  
+  if (!token || !sessions.has(token)) {
+    return res.status(401).json({ authenticated: false });
+  }
+  
+  const session = sessions.get(token);
+  if (Date.now() > session.expires) {
+    sessions.delete(token);
+    return res.status(401).json({ authenticated: false });
+  }
+  
+  res.json({ authenticated: true, username: session.username });
+});
+
 // Check auth status
 app.get('/api/auth/status', (req, res) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
